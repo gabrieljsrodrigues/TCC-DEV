@@ -82,46 +82,11 @@ export default function Agentes() {
         else if (status === 'CHANNEL_ERROR') setStatusAntena('⚠️ Erro de Rede');
       });
 
-    // --- NOVA ANTENA: VIGIA DE PRESENÇA (AUTO-CURA DE CONEXÕES FANTASMAS) ---
-    const channelPresence = supabase.channel('vigia-presenca');
-
-    channelPresence
-      .on('presence', { event: 'sync' }, async () => {
-        // 1. Quem o Supabase diz que realmente está com o app aberto e conectado agora?
-        const estadoPresenca = channelPresence.presenceState();
-        const matriculasRealmenteOnline = Object.keys(estadoPresenca);
-        
-        // 2. Busca no banco quem "ficou travado" como Online de ontem ou porque matou o app
-        const { data: supostosOnline } = await supabase
-          .from('agentes_autorizados')
-          .select('id, matricula')
-          .eq('status_conexao', 'Online');
-          
-        if (supostosOnline) {
-           for (const ag of supostosOnline) {
-              if (!matriculasRealmenteOnline.includes(ag.matricula)) {
-                  // Se o banco diz que tá online, mas não tem WebSocket físico conectado: limpa!
-                  await supabase.from('agentes_autorizados')
-                    .update({ status_conexao: 'Offline' })
-                    .eq('id', ag.id);
-              }
-           }
-        }
-      })
-      .on('presence', { event: 'leave' }, async ({ leftPresences }) => {
-        // Se a central estiver aberta e um agente fechar o app na hora, arruma na mesma hora!
-        for (const agente of leftPresences) {
-          await supabase.from('agentes_autorizados')
-            .update({ status_conexao: 'Offline' })
-            .eq('matricula', agente.matricula);
-        }
-      })
-      .subscribe();
+    // Removido o bloco vigia-presenca daqui para evitar o "fogo amigo" e a desconexão acidental.
 
     return () => {
       supabase.removeChannel(channelAgentes);
       supabase.removeChannel(channelChat);
-      supabase.removeChannel(channelPresence);
     };
   }, []);
 
